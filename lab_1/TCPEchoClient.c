@@ -1,87 +1,78 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
+/*
+	Client side message application
+
+	Author: Ananta Srikar
+*/
+
 #include <arpa/inet.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
-#define BUFSIZE 1024
+int main(int argc, char **argv)
+{
+	// TODO: Add command line arguments
+	// Variables to initialize socket
+	int sock = 0, valread, client_fd;
+	struct sockaddr_in serv_addr;
 
-int main(int argc, char **argv) {
+	int PORT = 8080;
 
-	if (argc != 4) {
-		perror("<Server Address> <Server Port> <Echo Word>");
-		exit(-1);
-	}
-	
-	char *servIP = argv[1];
-	char *echoString = argv[3];
-	
-	// Set port number as given by user or as default 12345
-	// in_port_t servPort = (argc == 3) ? atoi(argv[2]) : 12345;
-	
-	// Set port number as user specifies
-	in_port_t servPort = atoi(argv[2]);
-	
-	//Creat a socket
-	int sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	if (sockfd < 0) {
-		perror("socket() failed");
-		exit(-1);
-	}
-	
-	// Set the server address
-	struct sockaddr_in servAddr;
-	memset(&servAddr, 0, sizeof(servAddr));
-	servAddr.sin_family = AF_INET;
-	int err = inet_pton(AF_INET, servIP, &servAddr.sin_addr.s_addr);
-	if (err <= 0) {
-		perror("inet_pton() failed");
-		exit(-1);
-	}
-	servAddr.sin_port = htons(servPort);
-	
-	// Connect to server
-	if (connect(sockfd, (struct sockaddr *) &servAddr, sizeof(servAddr)) < 0) {
-		perror("connect() failed");
-		exit(-1);
-	}
-	
-	size_t echoStringLen = strlen(echoString);
-	
-	// Send string to server
-	ssize_t sentLen = send(sockfd, echoString, echoStringLen, 0);
-	if (sentLen < 0) {
-		perror("send() failed");
-		exit(-1);
-	} else if (sentLen != echoStringLen) {
-		perror("send(): sent unexpected number of bytes");
-		exit(-1);
+	// Variables for storing communication
+	char *hello = "Hello from client";
+	char buffer[1024] = { 0 };
+	char *IP = "127.0.0.1";
+
+	// Attempt creation of a socket on client side
+	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+		printf("\nSocket creation error\n");
+		return -1;
 	}
 
-	// Receive string from server
-	unsigned int totalRecvLen = 0;
+	// Setting structure variables for server connection
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_port = htons(PORT);
 
-	fputs("Received: ", stdout);
-	while (totalRecvLen < echoStringLen) {
-		char buffer[BUFSIZE];
-		memset(buffer, 0, BUFSIZE);
-		ssize_t recvLen = recv(sockfd, buffer, BUFSIZE - 1, 0);
-		if (recvLen < 0) {
-			perror("recv() failed");
-			exit(-1);
-		} else if (recvLen == 0) {
-			perror("recv() connection closed prematurely");
-			exit(-1);
+	// Convert IPv4 and IPv6 addresses from text to binary form
+	if (inet_pton(AF_INET, IP, &serv_addr.sin_addr) <= 0)
+	{
+		printf("\nInvalid address / Address not supported\n");
+		return -1;
+	}
+
+	// Attempting server connection
+	if ((client_fd = connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr))) < 0)
+	{
+		printf("\nConnection Failed\n");
+		return -1;
+	}
+
+	// Sending message to server
+	for(int i = 0; i < 5; i++)
+	{
+		if(i == 4)
+		{
+			send(sock, "BYE", 4, 0);
+			printf("Send: BYE\n");
 		}
-	
-		totalRecvLen += recvLen;
-		buffer[recvLen] = '\n';
-		fputs(buffer, stdout);	
+
+		else
+		{
+			char count[3];
+			sprintf(count, "%d", i);
+
+			// TODO: Send custom input taken from user
+			send(sock, count, strlen(count), 0);
+			printf("Sent: %d\n", i);
+		}
+
+		// Recieveing message from server
+		valread = read(sock, buffer, 1024);
+		printf("%s\n", buffer);
 	}
-	
-	close(sockfd);
-	exit(0);
+
+	// closing the connected socket
+	close(client_fd);
+	return(0);
 }

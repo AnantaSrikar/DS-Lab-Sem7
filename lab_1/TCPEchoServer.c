@@ -1,112 +1,92 @@
+/*
+	Server side message with socket programming
+	Author: Ananta Srikar
+*/
+
+#include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+#include <unistd.h>
 
-#define BUFSIZE 1024
+int main(int argc, char **argv)
+{
+	// TODO: Add command line arguments
+	// Variables to initialize socket
+	int server_fd, new_socket, valread;
+	struct sockaddr_in address;
+	int opt = 1;
+	int addrlen = sizeof(address);
 
-static const int MAXPENDING = 5; // Maximum outstanding connection requests
+	int PORT = 8080;
 
-int main(int argc, char ** argv) {
+	// Variables for storing communication
+	char buffer[1024] = { 0 };
+	char* hello = "Hello from server";
 
-	if (argc != 2) {
-		perror("<server port>");
-		exit(-1);
+	// Creating socket file descriptor
+	if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+		perror("socket failed");
+		exit(EXIT_FAILURE);
 	}
 
-	in_port_t servPort = atoi(argv[1]); // Local port
-
-	// create socket for incoming connections
-	int servSock;
-	if ((servSock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
-		perror("socket() failed");
-		exit(-1);
+	// Forcefully attaching socket to the port 8080
+	if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt)))
+	{
+		perror("setsockopt");
+		exit(EXIT_FAILURE);
 	}
 
-	// Set local parameters
-	struct sockaddr_in servAddr;
-	memset(&servAddr, 0, sizeof(servAddr));
-	servAddr.sin_family = AF_INET;
-	servAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	servAddr.sin_port = htons(servPort);
+	address.sin_family = AF_INET;
+	address.sin_addr.s_addr = INADDR_ANY;
+	address.sin_port = htons(PORT);
 
-	// Bind to the local address
-	if (bind(servSock, (struct sockaddr *) &servAddr, sizeof(servAddr)) < 0) {
-		perror("bind() failed");
-		exit(-1);
+	// Forcefully attaching socket to the port 8080
+	if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0)
+	{
+		perror("bind failed");
+		exit(EXIT_FAILURE);
 	}
 
-	// Listen to the client
-	if (listen(servSock, MAXPENDING) < 0) {
-		perror("listen() failed");
-		exit(-1);
+	// Start listening for a TCP connection
+	if (listen(server_fd, 3) < 0)
+	{
+		perror("listen");
+		exit(EXIT_FAILURE);
 	}
 
-	// Server Loop
-	for (;;) {
-		struct sockaddr_in clntAddr;
-		socklen_t clntAddrLen = sizeof(clntAddr);
+	printf("Waiting for a client to connect\n");
+	if ((new_socket = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen)) < 0)
+	{
+		perror("accept");
+		exit(EXIT_FAILURE);
+	}
 
-		// Wait for a client to connect
-		int clntSock = 
-				accept(servSock, (struct sockaddr *) &clntAddr, &clntAddrLen);
-		if (clntSock < 0) {
-			perror("accept() failed");
-			exit(-1);
+	// TODO: print the client that is connected (port number atleast)
+
+	// Start exchanging messages till the client wants to break up :p
+	while(1)
+	{
+		valread = read(new_socket, buffer, 1024);
+		printf("%s\n", buffer);
+
+		// Exit the server when we say bye
+		if(strcmp(buffer, "BYE") == 0)
+		{
+			send(new_socket, "BYE", 4, 0);
+			break;
 		}
 
-		char clntIpAddr[INET_ADDRSTRLEN];
-		if (inet_ntop(AF_INET, &clntAddr.sin_addr.s_addr, 
-				clntIpAddr, sizeof(clntIpAddr)) != NULL) {
-			printf("----\nHandling client %s %d\n", 
-					clntIpAddr, ntohs(clntAddr.sin_port));
-		} else {
-			puts("----\nUnable to get client IP Address");
-		}
-
-		// Receive data
-		char buffer[BUFSIZE];
-		memset(buffer, 0, BUFSIZE);
-		ssize_t recvLen = recv(clntSock, buffer, BUFSIZE - 1, 0);
-		if (recvLen < 0) {
-			perror("recv() failed");
-			exit(-1);
-		}
-		buffer[recvLen] = '\n';
-		fputs(buffer, stdout);
-
-		while (recvLen > 0) {
-			// printf("Begining of Client Loop\n");
-			// Send the received data back to client
-			ssize_t sentLen = send(clntSock, buffer, recvLen, 0);
-			if (sentLen < 0) {
-				perror("send() failed");
-				exit(-1);
-			} else if (sentLen != recvLen) {
-				perror("send() sent unexpected number of bytes");
-				exit(-1);
-			}
-
-			// See if there is more data to receive
-			memset(buffer, 0, BUFSIZE);
-			recvLen = recv(clntSock, buffer, BUFSIZE, 0);
-			if (recvLen < 0) {
-				perror("recv() failed");
-				exit(-1);
-			} else if (recvLen > 0) { // some data was remaining
-				buffer[recvLen] = '\n';
-				fputs(buffer, stdout);
-			}
-			// printf("End of Client Loop\n");
-		}
-
-		close(clntSock);
-		// printf("End of Server Loop\n");
+		// TODO: Send custom input taken from user
+		send(new_socket, hello, strlen(hello), 0);
+		printf("Hello message sent\n");
 	}
 
-	printf("End of Program\n");
+	// closing the connected socket
+	close(new_socket);
 
+	// closing the listening socket
+	shutdown(server_fd, SHUT_RDWR);
+	return 0;
 }
