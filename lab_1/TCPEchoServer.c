@@ -63,13 +63,15 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
+	printf("Client connection recieved!\n");
+
 	// TODO: print the client that is connected (port number atleast)
 
 	// Start exchanging messages till the client wants to break up :p
 	while(1)
 	{
 		valread = read(new_socket, buffer, 1024);
-		printf("%s\n", buffer);
+		printf("[Client]: %s\n", buffer);
 
 		// Exit the server when we say bye
 		if(strcmp(buffer, "BYE") == 0)
@@ -78,9 +80,13 @@ int main(int argc, char **argv)
 			break;
 		}
 
-		// TODO: Send custom input taken from user
-		send(new_socket, hello, strlen(hello), 0);
-		printf("Hello message sent\n");
+		// Get user input to be sent to client
+		char outgoing[20];
+		printf("[Server]: ");
+		scanf("%s", outgoing);
+
+		// Send the message to client
+		send(new_socket, outgoing, strlen(outgoing), 0);
 	}
 
 	// closing the connected socket

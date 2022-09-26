@@ -51,25 +51,17 @@ int main(int argc, char **argv)
 	// Sending message to server
 	for(int i = 0; i < 5; i++)
 	{
-		if(i == 4)
-		{
-			send(sock, "BYE", 4, 0);
-			printf("Send: BYE\n");
-		}
+		char outgoing[20];
 
-		else
-		{
-			char count[3];
-			sprintf(count, "%d", i);
+		printf("[Client]: ");
+		scanf("%s", outgoing);
+		send(sock, outgoing, strlen(outgoing), 0);
 
-			// TODO: Send custom input taken from user
-			send(sock, count, strlen(count), 0);
-			printf("Sent: %d\n", i);
-		}
+		// TODO: break loop when BYE is recieved
 
 		// Recieveing message from server
 		valread = read(sock, buffer, 1024);
-		printf("%s\n", buffer);
+		printf("[Server]: %s\n", buffer);
 	}
 
 	// closing the connected socket
